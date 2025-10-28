@@ -22,15 +22,19 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Nhiệt độ & độ ẩm */}
+        {/* Tiến trình công việc hiện tại */}
         <div className="col-lg-6 col-12">
           <div className="data-card">
             <div className="data-card-header">
-              <i className="fas fa-temperature-half me-2"></i>
-              Nhiệt độ & Độ ẩm đo được
+              <i className="fa-solid fa-chart-simple me-2"></i>
+              Tiến trình công việc hiện tại
             </div>
-            <div className="data-card-body">
-              <div className="d-flex justify-content-around">
+            <div className="data-card-body2">
+              <div className="d-flex justify-content-between align-items-center">
+                <div className="text-center">
+                  <div className="data-value">--°%</div>
+                  <small className="text-muted">Tiến độ làm việc</small>
+                </div>
                 <div className="text-center">
                   <div className="data-value">--°C</div>
                   <small className="text-muted">Nhiệt độ</small>

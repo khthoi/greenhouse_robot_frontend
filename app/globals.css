@@ -134,6 +134,11 @@ body {
   justify-content: center;
 }
 
+.data-card-body2 {
+  padding: 1.5rem 1.25rem;
+  min-height: 120px;
+}
+
 .data-value {
   font-size: 2rem;
   font-weight: 600;
