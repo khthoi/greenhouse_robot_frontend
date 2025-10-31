@@ -1,6 +1,9 @@
 'use client';
 
 import LeftSidebar from '@/components/LeftSidebar';
+import SocketNotifications from '@/components/SocketNotification';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './globals.css';
 
 export default function RootLayout({
@@ -24,6 +27,24 @@ export default function RootLayout({
         />
       </head>
       <body>
+        {/* Socket Notifications - Component lắng nghe các sự kiện realtime */}
+        <SocketNotifications />
+        
+        {/* Toast Container - Hiển thị thông báo góc trên bên phải */}
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={true}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          style={{ zIndex: 9999 }}
+        />
+
         <div className="container-fluid">
           <div className="row">
             {/* Sidebar sẽ hiển thị cho TẤT CẢ các trang */}

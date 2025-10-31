@@ -43,6 +43,18 @@ body {
   padding: 1rem 0;
 }
 
+.d-block {
+  display: block;
+}
+
+.d-inline {
+  display: inline;
+}
+
+.d-inline-block {
+  display: inline-block;
+}
+
 .sidebar-link {
   display: flex;
   align-items: center;
