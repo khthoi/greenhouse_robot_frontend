@@ -1,5 +1,3 @@
-'use client';
-
 import LeftSidebar from '@/components/LeftSidebar';
 import SocketNotifications from '@/components/SocketNotification';
 import { ToastContainer } from 'react-toastify';

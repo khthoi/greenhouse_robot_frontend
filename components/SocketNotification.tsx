@@ -1,4 +1,3 @@
-// components/SocketNotifications.tsx
 'use client';
 
 import { useEffect } from 'react';

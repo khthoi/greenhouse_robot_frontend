@@ -113,9 +113,9 @@ export default function Dashboard() {
   const getStatusBadge = (status: string) => {
     const badges: Record<string, string> = {
       'NONE': 'secondary',
-      'WORKING': 'success',
+      'RUNNING': 'success',
       'ERROR': 'danger',
-      'PAUSED': 'warning',
+      'IDLE': 'warning',
       'RECEIVED': 'info',
       'IN_PROGRESS': 'primary',
       'COMPLETED': 'success',
