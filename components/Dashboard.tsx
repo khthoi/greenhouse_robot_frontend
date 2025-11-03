@@ -25,7 +25,7 @@ interface WorkPlanData {
     current_measurements: number;
     latest_temperature?: number;
     latest_humidity?: number;
-    latest_timestamp?: string;
+    latest_created_at?: string;
   }>;
 }
 
@@ -35,7 +35,7 @@ interface ObstacleData {
   left_dist: number;
   right_dist: number;
   suggestion: string;
-  timestamp: string;
+  created_at: string;
 }
 
 interface StatusData {
@@ -44,7 +44,7 @@ interface StatusData {
   mode: string;
   command_excuted: string;
   message: string;
-  timestamp: string;
+  created_at: string;
 }
 
 export default function Dashboard() {
@@ -134,8 +134,8 @@ export default function Dashboard() {
     if (itemsWithData.length === 0) return null;
 
     const latest = itemsWithData.reduce((prev, current) => {
-      const prevTime = prev.latest_timestamp ? new Date(prev.latest_timestamp).getTime() : 0;
-      const currTime = current.latest_timestamp ? new Date(current.latest_timestamp).getTime() : 0;
+      const prevTime = prev.latest_created_at ? new Date(prev.latest_created_at).getTime() : 0;
+      const currTime = current.latest_created_at ? new Date(current.latest_created_at).getTime() : 0;
       return currTime > prevTime ? current : prev;
     });
 
@@ -369,7 +369,7 @@ export default function Dashboard() {
 
                   <p className="text-muted mb-0">
                     <i className="fas fa-clock me-2"></i>
-                    {new Date(obstacle.timestamp).toLocaleString('vi-VN')}
+                    {new Date(obstacle.created_at).toLocaleString('vi-VN')}
                   </p>
                 </div>
               ) : (
@@ -413,7 +413,7 @@ export default function Dashboard() {
 
                   <p className="text-muted mb-0">
                     <i className="fas fa-clock me-2"></i>
-                    <small>{new Date(robotStatus.timestamp).toLocaleString('vi-VN')}</small>
+                    <small>{new Date(robotStatus.created_at).toLocaleString('vi-VN')}</small>
                   </p>
                 </div>
               ) : (

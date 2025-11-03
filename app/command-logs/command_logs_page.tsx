@@ -118,7 +118,7 @@ export default function CommandLogsPage() {
                     </td>
 
                     {/* Thời gian gửi lệnh */}
-                    <td className="text-centerm text-muted small">
+                    <td className="text-center text-muted small">
                       {formatDateTime(log.timestamp)}
                     </td>
 

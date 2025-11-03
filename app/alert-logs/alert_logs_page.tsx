@@ -11,7 +11,6 @@ interface Alert {
   reference_value: number;
   threshold: number;
   message: string;
-  timestamp: string;
   measurement_number: number;
   created_at: string;
 }
@@ -232,7 +231,6 @@ export default function AlertLogPage() {
         {alertLogs.length === 0 ? (
           <div className="data-card">
             <div className="data-card-body text-center py-5">
-              <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
               <p className="text-muted">Chưa có cảnh báo nào</p>
             </div>
           </div>
@@ -305,7 +303,7 @@ export default function AlertLogPage() {
                                 <th className="text-center">Chuẩn</th>
                                 <th className="text-center">Ngưỡng</th>
                                 <th className="text-center">Lệch</th>
-                                <th>Thời gian</th>
+                                <th className="text-center">Thời gian</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -340,9 +338,9 @@ export default function AlertLogPage() {
                                         {deviation.toFixed(1)}
                                       </span>
                                     </td>
-                                    <td>
+                                    <td className="text-center">
                                       <small className="text-muted">
-                                        {formatDateTime(alert.timestamp)}
+                                        {formatDateTime(alert.created_at)}
                                       </small>
                                     </td>
                                   </tr>

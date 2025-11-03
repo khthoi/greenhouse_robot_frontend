@@ -55,7 +55,6 @@ export default function ObstacleLogsPage() {
             rightPosition: item.right_distance,
             suggestedCommand: SUGGESTION_MAP[item.suggestion] || item.suggestion,
             executedCommand: ACTION_MAP[item.action_taken] || item.action_taken,
-            detectedAt: item.timestamp,
             created_at: item.created_at,
           }))
         );
@@ -80,7 +79,7 @@ export default function ObstacleLogsPage() {
     return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
   };
 
-  const formatPosition = (value: number) => `${value.toFixed(2)} m`;
+  const formatPosition = (value: number) => `${value.toFixed(2)} cm`;
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
     setCurrentPage(value);
@@ -107,7 +106,6 @@ export default function ObstacleLogsPage() {
                   <th className="text-center">Vị trí bên phải</th>
                   <th>Lệnh đề xuất</th>
                   <th>Lệnh thực thi</th>
-                  <th>Thời gian phát hiện</th>
                   <th>Thời gian lưu</th>
                 </tr>
               </thead>
@@ -126,9 +124,6 @@ export default function ObstacleLogsPage() {
                     </td>
                     <td>{log.suggestedCommand}</td>
                     <td>{log.executedCommand}</td>
-                    <td className="text-muted small">
-                      {formatDateTime(log.detectedAt)}
-                    </td>
                     <td className="text-muted small">
                       {formatDateTime(log.created_at)}
                     </td>

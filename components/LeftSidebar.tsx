@@ -23,7 +23,7 @@ export default function LeftSidebar() {
         <a href="/" className="robot-icon-link">
           <i className="fas fa-robot me-2"></i>
         </a>
-        <h5 className="mb-0">IOT Project</h5>
+        <h5 className="mb-0">Greenhouse IoT Monitoring System</h5>
       </div>
       <nav className="sidebar-nav">
         <ul className="list-unstyled">

@@ -329,6 +329,45 @@ export default function WorkPlanPage() {
         }
     };
 
+    const handleDeletePlan = async (planId: number, planDescription: string) => {
+        const result = await Swal.fire({
+            title: 'Xác nhận xóa',
+            text: `Bạn có chắc muốn xóa kế hoạch "${planDescription}"?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#95a5a6',
+            confirmButtonText: 'Xóa',
+            cancelButtonText: 'Hủy',
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const res = await fetch(`${apiUrl}/work-plans/${planId}`, {
+                    method: 'DELETE',
+                });
+
+                if (!res.ok) throw new Error();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Đã xóa!',
+                    text: 'Kế hoạch đã được xóa thành công.',
+                    confirmButtonColor: '#3498db',
+                });
+
+                triggerRefresh(); // Refresh danh sách
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Lỗi!',
+                    text: 'Xóa kế hoạch thất bại. Vui lòng thử lại.',
+                    confirmButtonColor: '#e74c3c',
+                });
+            }
+        }
+    };
+
     const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
         setCurrentPage(value);
     };
@@ -363,6 +402,7 @@ export default function WorkPlanPage() {
                                     <th>Mức chênh nhiệt độ</th>
                                     <th>Mức chênh độ ẩm</th>
                                     <th>Số lần vi phạm cho phép</th>
+                                    <th>Thời gian tạo</th>
                                     <th>Hành động</th>
                                 </tr>
                             </thead>
@@ -394,20 +434,33 @@ export default function WorkPlanPage() {
                                                 <td className="text-center">{plan.temp_threshold.toFixed(1)}°C</td>
                                                 <td className="text-center">{plan.hum_threshold.toFixed(1)}%</td>
                                                 <td className="text-center">{plan.violation_count}</td>
-                                                <td>
-                                                    <button
-                                                        className="btn btn-sm btn-outline-primary"
-                                                        onClick={() => handleCreatePlan(plan)}
-                                                    >
-                                                        <i className="fas fa-redo me-1"></i>
-                                                        Áp dụng lại
-                                                    </button>
+                                                <td className='text-center'>{formatDateTime(plan.created_at)}</td>
+                                                <td className="text-center">
+                                                    <div className="btn-group" role="group">
+                                                        <button
+                                                            className="btn btn-sm btn-outline-primary"
+                                                            onClick={() => handleCreatePlan(plan)}
+                                                            title="Áp dụng lại"
+                                                        >
+                                                            <i className="fas fa-redo"></i>
+                                                        </button>
+
+                                                        <button
+                                                            className={`btn btn-sm btn-outline-danger ms-1 ${['COMPLETED', 'NOT_RECEIVED', 'FAILED'].includes(plan.status)
+                                                                    ? ''
+                                                                    : 'invisible'
+                                                                }`}
+                                                            onClick={() => handleDeletePlan(plan.id, plan.description)}
+                                                            title="Xóa kế hoạch"
+                                                        >
+                                                            <i className="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
-
                                             {isExpanded && (
                                                 <tr>
-                                                    <td colSpan={9} className="bg-light p-0">
+                                                    <td colSpan={10} className="bg-light p-0">
                                                         <div className="p-3">
                                                             <h6 className="mb-3">
                                                                 <i className="fas fa-map-marker-alt me-2"></i>

@@ -9,7 +9,6 @@ interface RobotStatus {
   status: string;
   message: string;
   mode: string;
-  executedAt: string;
   created_at: string;
 }
 
@@ -44,7 +43,6 @@ export default function RobotStatusPage() {
             mode:
               STATUS_MAP[item.mode] ||
               item.mode, // map mode code to Vietnamese
-            executedAt: item.timestamp,
             created_at: item.created_at,
           }))
         );
@@ -93,7 +91,6 @@ export default function RobotStatusPage() {
                   <th className="text-center">Trạng thái</th>
                   <th className="text-center" style={{ width: "470px" }}>Tin nhắn</th>
                   <th className="text-center">Chế độ</th>
-                  <th className="text-center">Thời gian thực thi</th>
                   <th className="text-center">Thời gian lưu</th>
                 </tr>
               </thead>
@@ -130,9 +127,6 @@ export default function RobotStatusPage() {
                       {item.message}
                     </td>
                     <td className="text-center">{item.mode}</td>
-                    <td className="text-muted small text-center">
-                      {formatDateTime(item.executedAt)}
-                    </td>
                     <td className="text-muted small text-center">
                       {formatDateTime(item.created_at)}
                     </td>

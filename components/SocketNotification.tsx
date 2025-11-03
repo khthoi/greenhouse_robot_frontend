@@ -32,17 +32,33 @@ export default function SocketNotifications() {
       });
     });
 
+    // Map trạng thái sang text tiếng Việt
+    const statusTextMap: Record<string, string> = {
+      NOT_RECEIVED: 'Chưa nhận',
+      RECEIVED: 'Đã nhận',
+      IN_PROGRESS: 'Đang thực hiện',
+      COMPLETED: 'Đã hoàn thành',
+      FAILED: 'Thất bại',
+    };
+
     // Lắng nghe sự kiện work_plan_status
     socket.on('work_plan_status', (data) => {
       console.log('work_plan_status:', data);
       const plan = data.data;
+
+      // Lấy text tiếng Việt
+      const statusText = statusTextMap[plan.status] || plan.status;
+
       toast.info(
         <div>
           <strong>📋 Trạng thái kế hoạch</strong>
           <div className="mt-2">
             <div><strong>ID:</strong> {plan.id}</div>
             <div><strong>Mô tả:</strong> {plan.description}</div>
-            <div><strong>Trạng thái:</strong> <span className="badge bg-primary">{plan.status}</span></div>
+            <div>
+              <strong>Trạng thái:</strong>{' '}
+              <span className="badge bg-primary">{statusText}</span>
+            </div>
             <div><strong>Tiến độ:</strong> {plan.progress}%</div>
           </div>
         </div>,
@@ -76,7 +92,7 @@ export default function SocketNotifications() {
         'HUM_HIGH': '💧 Độ ẩm cao',
         'HUM_LOW': '🏜️ Độ ẩm thấp',
       };
-      
+
       toast.error(
         <div>
           <strong>{alertTypes[data.alert_type] || '⚠️ Cảnh báo'}</strong>
@@ -102,7 +118,7 @@ export default function SocketNotifications() {
         'ERROR': '🔴',
         'PAUSED': '🟡',
       };
-      
+
       toast.info(
         <div>
           <strong>{statusIcons[data.status] || '🤖'} Trạng thái Robot</strong>
@@ -127,7 +143,7 @@ export default function SocketNotifications() {
         'TURN_RIGHT': '➡️ Rẽ phải',
         'STOP': '🛑 Dừng',
       };
-      
+
       toast.success(
         <div>
           <strong>📡 Lệnh đã gửi</strong>
@@ -149,7 +165,7 @@ export default function SocketNotifications() {
         'BACKWARD': '⬇️ Lùi lại',
         'STOP': '🛑 Dừng lại',
       };
-      
+
       toast.warning(
         <div>
           <strong>⚠️ Phát hiện vật cản</strong>
@@ -158,6 +174,19 @@ export default function SocketNotifications() {
             <div><strong>Khoảng cách trái:</strong> {data.left_dist}m</div>
             <div><strong>Khoảng cách phải:</strong> {data.right_dist}m</div>
             <div className="mt-1"><strong>Đề xuất:</strong> <span className="badge bg-warning text-dark">{suggestionNames[data.suggestion] || data.suggestion}</span></div>
+          </div>
+        </div>,
+        { autoClose: 5000, position: 'top-right' }
+      );
+    });
+
+    socket.on('robot.connected', (data) => {
+      console.log('robot.connected:', data);
+      toast.success(
+        <div>
+          <strong>Kết nối thành công với Robot!</strong>
+          <div className="mt-2">
+            <div><strong>IP Robot:</strong> {data.esp32_ip}</div>
           </div>
         </div>,
         { autoClose: 5000, position: 'top-right' }

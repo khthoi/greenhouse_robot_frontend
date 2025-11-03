@@ -49,9 +49,7 @@ export default function SendCommandPage() {
 
     newSocket.on('manual_command_response', (payload) => {
       const { type, responses } = payload;
-      const { command, status, message, timestamp } = responses;
-
-      const time = new Date(timestamp).toLocaleTimeString('vi-VN');
+      const { command, status, message} = responses;
 
       toast(
         <div className="p-2">
@@ -61,9 +59,6 @@ export default function SendCommandPage() {
             {status}
           </div>
           <div className="mt-1 small">{message}</div>
-          <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
-            {time}
-          </div>
         </div>,
         {
           position: 'top-right',
@@ -111,39 +106,60 @@ export default function SendCommandPage() {
     [apiUrl]
   );
 
-  const handleConnectRobot = () => {
-    Swal.fire({
+  const handleConnectRobot = async () => {
+    const result = await Swal.fire({
       title: 'Kết nối đến Robot',
       html: `
-        <div class="text-start">
-          <label for="robot-ip" class="form-label">Địa chỉ IP của server</label>
-          <input type="text" id="robot-ip" class="form-control" placeholder="192.168.1.100" />
-        </div>
-      `,
+      <div class="text-start">
+        <label for="robot-ip" class="form-label">Địa chỉ IP của ESP32</label>
+        <input type="text" id="robot-ip" class="form-control" placeholder="192.168.1.100" />
+      </div>
+    `,
       showCancelButton: true,
       confirmButtonText: 'Kết nối',
       cancelButtonText: 'Hủy',
       preConfirm: () => {
-        const ip = (Swal.getPopup()?.querySelector('#robot-ip') as HTMLInputElement)?.value;
+        const ip = (Swal.getPopup()?.querySelector('#robot-ip') as HTMLInputElement)?.value?.trim();
         if (!ip) {
-          Swal.showValidationMessage('Vui lòng nhập địa chỉ IP');
+          Swal.showValidationMessage('Vui lòng nhập IP');
+          return false;
+        }
+        if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+          Swal.showValidationMessage('IP không hợp lệ');
           return false;
         }
         return ip;
       },
-    }).then((result) => {
-      if (result.isConfirmed) {
-        Swal.fire({
-          icon: 'success',
-          title: 'Thành công!',
-          text: `Đã kết nối tới robot tại ${result.value}`,
-          timer: 2000,
-          showConfirmButton: false,
-        });
-      }
     });
-  };
 
+    if (!result.isConfirmed) return;
+
+    const esp32Ip = result.value;
+
+    try {
+      const res = await fetch(`${apiUrl}/connect-robot`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ esp32_ip: esp32Ip }),
+      });
+
+      if (!res.ok) throw new Error('Server từ chối');
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Đã gửi yêu cầu!',
+        text: 'Đang chờ robot phản hồi...',
+        timer: 3000,
+        showConfirmButton: false,
+      });
+    } catch (err: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gửi thất bại',
+        text: err.message,
+      });
+    }
+  };
   // Xử lý nhấn giữ
   const handleKeyDown = useCallback(
     (cmd: CommandType) => {

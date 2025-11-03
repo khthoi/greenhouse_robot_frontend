@@ -8,7 +8,6 @@ interface Measurement {
   measurement_number: number;
   temperature: number | null;
   humidity: number | null;
-  timestamp: string;
   created_at: string;
 }
 
@@ -137,7 +136,6 @@ export default function CollectedDataPage() {
         {collectedData.length === 0 ? (
           <div className="data-card">
             <div className="data-card-body text-center py-5">
-              <i className="fas fa-inbox fa-3x text-muted mb-3"></i>
               <p className="text-muted">Chưa có dữ liệu thu thập</p>
             </div>
           </div>
@@ -221,8 +219,7 @@ export default function CollectedDataPage() {
                                         <th className="text-center" style={{ width: '80px' }}>Lần đo</th>
                                         <th className="text-center">Nhiệt độ</th>
                                         <th className="text-center">Độ ẩm</th>
-                                        <th>Thời gian đo</th>
-                                        <th>Thời gian lưu</th>
+                                        <th className='text-center'>Thời gian lưu</th>
                                       </tr>
                                     </thead>
                                     <tbody>
@@ -258,13 +255,7 @@ export default function CollectedDataPage() {
                                                 <span className="text-muted">--</span>
                                               )}
                                             </td>
-                                            <td>
-                                              <small className="text-muted">
-                                                <i className="far fa-clock me-1"></i>
-                                                {formatDateTime(measurement.timestamp)}
-                                              </small>
-                                            </td>
-                                            <td>
+                                            <td className='text-center'>
                                               <small className="text-muted">
                                                 <i className="far fa-save me-1"></i>
                                                 {formatDateTime(measurement.created_at)}
