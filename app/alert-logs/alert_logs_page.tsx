@@ -160,8 +160,8 @@ export default function AlertLogPage() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="row g-3 mt-2 mb-4">
-        <div className="col-lg-3 col-md-6">
+      <div className="row g-3 mt-2 mb-4 d-flex justify-content-center">
+        <div className="col-lg-2 col-md-6">
           <div className="card border-0 shadow-sm">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
@@ -177,7 +177,7 @@ export default function AlertLogPage() {
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6">
+        <div className="col-lg-2 col-md-6">
           <div className="card border-0 shadow-sm">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
@@ -193,7 +193,7 @@ export default function AlertLogPage() {
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6">
+        <div className="col-lg-2 col-md-6">
           <div className="card border-0 shadow-sm">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
@@ -209,13 +209,28 @@ export default function AlertLogPage() {
           </div>
         </div>
 
-        <div className="col-lg-3 col-md-6">
+        <div className="col-lg-2 col-md-6">
           <div className="card border-0 shadow-sm">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <small className="text-muted d-block">Độ ẩm bất thường</small>
-                  <h4 className="mb-0 mt-1 text-primary">{alertStats.HUM_HIGH + alertStats.HUM_LOW}</h4>
+                  <small className="text-muted d-block">Độ ẩm cao</small>
+                  <h4 className="mb-0 mt-1 text-danger">{alertStats.HUM_HIGH}</h4>
+                </div>
+                <div className="bg-danger bg-opacity-10 p-3 rounded">
+                  <i className="fas fa-droplet fa-2x text-danger"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="col-lg-2 col-md-6">
+          <div className="card border-0 shadow-sm">
+            <div className="card-body">
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <small className="text-muted d-block">Độ ẩm thấp</small>
+                  <h4 className="mb-0 mt-1 text-primary">{alertStats.HUM_LOW}</h4>
                 </div>
                 <div className="bg-primary bg-opacity-10 p-3 rounded">
                   <i className="fas fa-droplet fa-2x text-primary"></i>

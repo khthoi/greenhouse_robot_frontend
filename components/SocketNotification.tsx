@@ -170,9 +170,9 @@ export default function SocketNotifications() {
         <div>
           <strong>⚠️ Phát hiện vật cản</strong>
           <div className="mt-2">
-            <div><strong>Khoảng cách trung tâm:</strong> {data.center_dist}m</div>
-            <div><strong>Khoảng cách trái:</strong> {data.left_dist}m</div>
-            <div><strong>Khoảng cách phải:</strong> {data.right_dist}m</div>
+            <div><strong>Khoảng cách trung tâm:</strong> {data.center_dist}cm</div>
+            <div><strong>Khoảng cách trái:</strong> {data.left_dist}cm</div>
+            <div><strong>Khoảng cách phải:</strong> {data.right_dist}cm</div>
             <div className="mt-1"><strong>Đề xuất:</strong> <span className="badge bg-warning text-dark">{suggestionNames[data.suggestion] || data.suggestion}</span></div>
           </div>
         </div>,
