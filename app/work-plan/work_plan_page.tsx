@@ -223,52 +223,91 @@ export default function WorkPlanPage() {
                 const addBtn = document.getElementById('add-item-btn');
                 const container = document.getElementById('items-container');
 
+                // Hàm cập nhật lại tiêu đề và data-index của tất cả các item
+                const updateItemIndices = () => {
+                    const rows = container?.querySelectorAll('.item-row') || [];
+                    rows.forEach((row, idx) => {
+                        const index = idx;
+                        row.setAttribute('data-index', String(index));
+
+                        const title = row.querySelector('strong');
+                        if (title) {
+                            title.textContent = `Vị trí ${index + 1}`;
+                        }
+
+                        const removeBtn = row.querySelector('.remove-item-btn') as HTMLElement;
+                        if (removeBtn) {
+                            removeBtn.dataset.index = String(index);
+                        }
+
+                        const select = row.querySelector('.rfid-select') as HTMLSelectElement;
+                        if (select) {
+                            select.dataset.index = String(index);
+                        }
+
+                        const input = row.querySelector('.frequency-input') as HTMLInputElement;
+                        if (input) {
+                            input.dataset.index = String(index);
+                        }
+                    });
+                };
+
                 addBtn?.addEventListener('click', () => {
+                    const currentCount = container?.children.length || 0;
+                    const newIndex = currentCount;
+
                     const newItem = document.createElement('div');
                     newItem.className = 'item-row mb-3 p-3';
                     newItem.style.cssText = 'background: #f8f9fa; border-radius: 6px;';
-                    newItem.dataset.index = String(itemIndex);
+                    newItem.dataset.index = String(newIndex);
                     newItem.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <strong>Vị trí ${itemIndex + 1}</strong>
-              <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" data-index="${itemIndex}">
-                <i class="fas fa-times"></i>
-              </button>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong>Vị trí ${newIndex + 1}</strong>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" data-index="${newIndex}">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-2">
+              <label class="form-label small">Thẻ RFID</label>
+              <select class="form-select form-select-sm rfid-select" data-index="${newIndex}">
+                ${rfidTags.map(tag => `<option value="${tag.id}">${tag.uid} - ${tag.location_name}</option>`).join('')}
+              </select>
             </div>
-            <div class="row">
-              <div class="col-md-6 mb-2">
-                <label class="form-label small">Thẻ RFID</label>
-                <select class="form-select form-select-sm rfid-select" data-index="${itemIndex}">
-                  ${rfidTags.map(tag => `<option value="${tag.id}">${tag.uid} - ${tag.location_name}</option>`).join('')}
-                </select>
-              </div>
-              <div class="col-md-6 mb-2">
-                <label class="form-label small">Tần suất đo (lần)</label>
-                <input type="number" class="form-control form-control-sm frequency-input" 
-                  data-index="${itemIndex}" value="1" min="1">
-              </div>
+            <div class="col-md-6 mb-2">
+              <label class="form-label small">Tần suất đo (lần)</label>
+              <input type="number" class="form-control form-control-sm frequency-input" 
+                data-index="${newIndex}" value="1" min="1">
             </div>
-          `;
+          </div>
+        `;
                     container?.appendChild(newItem);
-                    itemIndex++;
+                    updateItemIndices(); // Cập nhật lại chỉ số
                     attachRemoveListeners();
                 });
 
                 const attachRemoveListeners = () => {
                     document.querySelectorAll('.remove-item-btn').forEach(btn => {
-                        btn.addEventListener('click', (e) => {
-                            const target = e.currentTarget as HTMLElement;
-                            const index = target.dataset.index;
-                            const row = document.querySelector(`.item-row[data-index="${index}"]`);
-                            if (container && container.children.length > 1) {
-                                row?.remove();
-                            } else {
-                                Swal.showValidationMessage('Phải có ít nhất 1 vị trí đo');
-                            }
-                        });
+                        btn.removeEventListener('click', handleRemove); // Tránh trùng listener
+                        btn.addEventListener('click', handleRemove);
                     });
                 };
 
+                const handleRemove = (e: Event) => {
+                    const target = e.currentTarget as HTMLElement;
+                    const index = target.dataset.index;
+                    const row = document.querySelector(`.item-row[data-index="${index}"]`);
+                    if (container && container.children.length > 1) {
+                        row?.remove();
+                        updateItemIndices(); // CẬP NHẬT LẠI SAU KHI XÓA
+                        attachRemoveListeners();
+                    } else {
+                        Swal.showValidationMessage('Phải có ít nhất 1 vị trí đo');
+                    }
+                };
+
+                // Gọi lần đầu để đảm bảo đúng
+                updateItemIndices();
                 attachRemoveListeners();
             },
             preConfirm: () => {
@@ -447,8 +486,8 @@ export default function WorkPlanPage() {
 
                                                         <button
                                                             className={`btn btn-sm btn-outline-danger ms-1 ${['COMPLETED', 'NOT_RECEIVED', 'FAILED'].includes(plan.status)
-                                                                    ? ''
-                                                                    : 'invisible'
+                                                                ? ''
+                                                                : 'invisible'
                                                                 }`}
                                                             onClick={() => handleDeletePlan(plan.id, plan.description)}
                                                             title="Xóa kế hoạch"
