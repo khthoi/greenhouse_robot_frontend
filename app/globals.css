@@ -221,3 +221,11 @@ body {
   /* Tùy chọn: Đổi màu khi hover */
   color: #007bff;
 }
+
+.text-ellipsis {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}

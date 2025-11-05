@@ -463,7 +463,7 @@ export default function WorkPlanPage() {
                                                         <i className={`fas fa-chevron-${isExpanded ? 'down' : 'right'}`}></i>
                                                     </button>
                                                 </td>
-                                                <td className="fw-semibold">{plan.description}</td>
+                                                <td className="fw-semibold text-ellipsis">{plan.description}</td>
                                                 <td>
                                                     <span className={`badge ${getStatusBadgeClass(plan.status)}`}>
                                                         {getStatusText(plan.status)}
