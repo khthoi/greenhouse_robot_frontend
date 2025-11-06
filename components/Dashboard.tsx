@@ -5,8 +5,10 @@ import { useEffect, useState } from 'react';
 import { socket } from './SocketNotification';
 
 interface CommandData {
+  id?: number;
   command: string;
   timestamp: string;
+  created_at?: string;
 }
 
 interface WorkPlanData {
@@ -54,50 +56,51 @@ export default function Dashboard() {
   const [robotStatus, setRobotStatus] = useState<StatusData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  // 🟢 Gọi API /commands/latest định kỳ
+  useEffect(() => {
+    const fetchLatestCommand = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/commands/latest`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setLastCommand({
+          id: data.id,
+          command: data.command,
+          timestamp: data.timestamp,
+        });
+      } catch (err) {
+        console.error('Không thể tải lệnh gần đây:', err);
+      }
+    };
+
+    fetchLatestCommand();
+    const interval = setInterval(fetchLatestCommand, 3000); // gọi mỗi 3s
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🟢 Socket events (giữ nguyên)
   useEffect(() => {
     if (!socket) return;
 
-    // Kiểm tra kết nối
-    socket.on('connect', () => {
-      setIsConnected(true);
-    });
-
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
-
-    // Lắng nghe các sự kiện
-    socket.on('command_sended', (data: CommandData) => {
-      setLastCommand(data);
-    });
-
-    socket.on('work_plan_status', (data: { data: WorkPlanData }) => {
-      setWorkPlan(data.data);
-    });
-
-    socket.on('work_plan_progress', (data: { data: WorkPlanData }) => {
-      setWorkPlan(data.data);
-    });
-
-    socket.on('obstacle', (data: ObstacleData) => {
-      setObstacle(data);
-    });
-
-    socket.on('status', (data: StatusData) => {
-      setRobotStatus(data);
-    });
+    socket.on('connect', () => setIsConnected(true));
+    socket.on('disconnect', () => setIsConnected(false));
+    socket.on('command_sended', (data: CommandData) => setLastCommand(data));
+    socket.on('work_plan_status', (data: { data: WorkPlanData }) => setWorkPlan(data.data));
+    socket.on('work_plan_progress', (data: { data: WorkPlanData }) => setWorkPlan(data.data));
+    socket.on('obstacle', (data: ObstacleData) => setObstacle(data));
+    socket.on('status', (data: StatusData) => setRobotStatus(data));
 
     return () => {
-      if (!socket) return;
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('command_sended');
-      socket.off('work_plan_status');
-      socket.off('work_plan_progress');
-      socket.off('obstacle');
-      socket.off('status');
+      socket?.off('connect');
+      socket?.off('disconnect');
+      socket?.off('command_sended');
+      socket?.off('work_plan_status');
+      socket?.off('work_plan_progress');
+      socket?.off('obstacle');
+      socket?.off('status');
     };
   }, []);
+
 
   const getCommandName = (command: string) => {
     const names: Record<string, string> = {
@@ -170,13 +173,14 @@ export default function Dashboard() {
               {lastCommand ? (
                 <div>
                   <h4 className="mb-3">
-                    <span className="badge bg-success fs-6">
-                      {getCommandName(lastCommand.command)}
+                    <span className="badge bg-primary fs-6">
+                      {lastCommand.command}
                     </span>
                   </h4>
                   <p className="text-muted mb-1">
                     <i className="fas fa-clock me-2"></i>
-                    <strong>Thời gian:</strong> {new Date(lastCommand.timestamp).toLocaleString('vi-VN')}
+                    <strong>Thời gian:</strong>{' '}
+                    {new Date(lastCommand.timestamp).toLocaleString('vi-VN')}
                   </p>
                   <p className="text-muted mb-0">
                     <i className="fas fa-code me-2"></i>
@@ -347,15 +351,15 @@ export default function Dashboard() {
 
                   <div className="row text-center mb-3">
                     <div className="col-4">
-                      <div className="obstacle-value">{obstacle.left_dist}m</div>
+                      <div className="obstacle-value">{obstacle.left_dist}cm</div>
                       <small className="text-muted">⬅️ Trái</small>
                     </div>
                     <div className="col-4">
-                      <div className="obstacle-value text-danger">{obstacle.center_dist}m</div>
+                      <div className="obstacle-value text-danger">{obstacle.center_dist}cm</div>
                       <small className="text-muted">⬆️ Giữa</small>
                     </div>
                     <div className="col-4">
-                      <div className="obstacle-value">{obstacle.right_dist}m</div>
+                      <div className="obstacle-value">{obstacle.right_dist}cm</div>
                       <small className="text-muted">➡️ Phải</small>
                     </div>
                   </div>
