@@ -1,9 +1,11 @@
+// app/alert-logs/alert_logs_page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Stack from '@mui/material/Stack';
 import Pagination from '@mui/material/Pagination';
 
+// === INTERFACES (giữ nguyên) ===
 interface Alert {
   alert_id: number;
   alert_type: string;
@@ -30,35 +32,108 @@ interface WorkPlan {
   temp_threshold: number;
   hum_threshold: number;
   violation_count: number;
+  created_at?: string;
 }
 
-interface AlertLog {
-  work_plan: WorkPlan;
+interface RFIDAlertGroup {
   rfid_tag: RFIDTag;
   alerts: Alert[];
 }
 
+interface AlertLogTree {
+  work_plan: WorkPlan;
+  rfid_tags: RFIDAlertGroup[];
+}
+
 export default function AlertLogPage() {
-  const [alertLogs, setAlertLogs] = useState<AlertLog[]>([]);
+  const [alertLogs, setAlertLogs] = useState<AlertLogTree[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
-  const [expandedRfidInPlan, setExpandedRfidInPlan] = useState<Record<number, number | null>>({});
+  const [expandedPlans, setExpandedPlans] = useState<Set<number>>(new Set());
+  const [expandedRfids, setExpandedRfids] = useState<Record<number, number[]>>({});
 
   const apiUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   const limit = 15;
 
-  // Fetch dữ liệu từ API
   useEffect(() => {
     const fetchData = async () => {
       try {
         const res = await fetch(`${apiUrl}/alert-logs?page=${currentPage}&limit=${limit}`);
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error('Failed to fetch');
         const json = await res.json();
-        setAlertLogs(json.data || []);
+
+        const planMap = new Map<number, AlertLogTree>();
+
+        (json.data || []).forEach((item: any) => {
+          // BẢO VỆ: work_plan
+          if (!item.work_plan || !item.work_plan.work_plan_id) return;
+
+          const planId = item.work_plan.work_plan_id;
+
+          // Tạo plan nếu chưa có
+          if (!planMap.has(planId)) {
+            planMap.set(planId, {
+              work_plan: {
+                work_plan_id: item.work_plan.work_plan_id,
+                description: item.work_plan.description || 'Không có mô tả',
+                status: item.work_plan.status || 'UNKNOWN',
+                temp_threshold: item.work_plan.temp_threshold || 0,
+                hum_threshold: item.work_plan.hum_threshold || 0,
+                violation_count: item.work_plan.violation_count || 0,
+                created_at: item.work_plan.created_at || '',
+              },
+              rfid_tags: [],
+            });
+          }
+
+          const planEntry = planMap.get(planId)!;
+
+          // ĐỌC MẢNG rfid_tags (cấu trúc mới)
+          if (Array.isArray(item.rfid_tags)) {
+            item.rfid_tags.forEach((group: any) => {
+              if (!group.rfid_tag || !group.rfid_tag.rfid_tag_id) return;
+
+              const rfidId = group.rfid_tag.rfid_tag_id;
+
+              // Tìm hoặc tạo RFID group
+              let rfidGroup = planEntry.rfid_tags.find(g => g.rfid_tag.rfid_tag_id === rfidId);
+              if (!rfidGroup) {
+                rfidGroup = {
+                  rfid_tag: {
+                    rfid_tag_id: group.rfid_tag.rfid_tag_id,
+                    uid: group.rfid_tag.uid || 'UNKNOWN',
+                    location_name: group.rfid_tag.location_name || 'Không rõ',
+                    reference_temperature: group.rfid_tag.reference_temperature || 0,
+                    reference_humidity: group.rfid_tag.reference_humidity || 0,
+                  },
+                  alerts: [],
+                };
+                planEntry.rfid_tags.push(rfidGroup);
+              }
+
+              // Thêm alerts
+              if (Array.isArray(group.alerts)) {
+                rfidGroup.alerts.push(
+                  ...group.alerts.map((a: any) => ({
+                    alert_id: a.alert_id,
+                    alert_type: a.alert_type || 'UNKNOWN',
+                    measured_value: a.measured_value ?? 0,
+                    reference_value: a.reference_value ?? 0,
+                    threshold: a.threshold ?? 0,
+                    message: a.message || '',
+                    measurement_number: a.measurement_number ?? 0,
+                    created_at: a.created_at || '',
+                  }))
+                );
+              }
+            });
+          }
+        });
+
+        setAlertLogs(Array.from(planMap.values()));
         setTotalPages(json.totalPages || 1);
       } catch (err) {
-        console.error('Lỗi fetch alert logs:', err);
+        console.error('Lỗi fetch:', err);
         setAlertLogs([]);
         setTotalPages(1);
       }
@@ -66,90 +141,86 @@ export default function AlertLogPage() {
     fetchData();
   }, [currentPage, apiUrl]);
 
-  const togglePlan = (key: string) => {
-    setExpandedPlanId(prev => (prev === key ? null : key));
+  // === CÁC HÀM GIÚP ĐỠ (giữ nguyên) ===
+  const togglePlan = (planId: number) => {
+    setExpandedPlans(prev => {
+      const next = new Set(prev);
+      next.has(planId) ? next.delete(planId) : next.add(planId);
+      return next;
+    });
   };
 
-  // Toggle mở rộng RFID trong kế hoạch
   const toggleRfid = (planId: number, rfidId: number) => {
-    setExpandedRfidInPlan(prev => ({
-      ...prev,
-      [planId]: prev[planId] === rfidId ? null : rfidId
-    }));
+    setExpandedRfids(prev => {
+      const next = { ...prev };
+      const current = next[planId] || [];
+
+      if (current.includes(rfidId)) {
+        // Đóng: loại bỏ rfidId
+        next[planId] = current.filter(id => id !== rfidId);
+      } else {
+        // Mở: thêm rfidId
+        next[planId] = [...current, rfidId];
+      }
+
+      // Xóa nếu không còn RFID nào mở
+      if (next[planId].length === 0) {
+        delete next[planId];
+      }
+
+      return next;
+    });
   };
 
-  // Xử lý phân trang
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+  const handlePageChange = (_: any, value: number) => {
     setCurrentPage(value);
+    window.scrollTo(0, 0);
   };
 
-  // Helper functions
-  const getAlertTypeInfo = (alertType: string) => {
-    switch (alertType) {
-      case 'TEMP_HIGH':
-        return { icon: 'fa-temperature-arrow-up', color: 'text-danger', bgColor: 'bg-danger', text: 'Nhiệt độ cao' };
-      case 'TEMP_LOW':
-        return { icon: 'fa-temperature-arrow-down', color: 'text-info', bgColor: 'bg-info', text: 'Nhiệt độ thấp' };
-      case 'HUM_HIGH':
-        return { icon: 'fa-droplet', color: 'text-primary', bgColor: 'bg-primary', text: 'Độ ẩm cao' };
-      case 'HUM_LOW':
-        return { icon: 'fa-droplet-slash', color: 'text-warning', bgColor: 'bg-warning', text: 'Độ ẩm thấp' };
-      default:
-        return { icon: 'fa-exclamation-triangle', color: 'text-secondary', bgColor: 'bg-secondary', text: alertType };
+  const getAlertTypeInfo = (type: string) => {
+    switch (type) {
+      case 'TEMP_HIGH': return { icon: 'fa-temperature-arrow-up', color: 'text-danger', bg: 'bg-danger', text: 'Nhiệt độ cao' };
+      case 'TEMP_LOW': return { icon: 'fa-temperature-arrow-down', color: 'text-info', bg: 'bg-info', text: 'Nhiệt độ thấp' };
+      case 'HUM_HIGH': return { icon: 'fa-droplet', color: 'text-primary', bg: 'bg-primary', text: 'Độ ẩm cao' };
+      case 'HUM_LOW': return { icon: 'fa-droplet-slash', color: 'text-warning', bg: 'bg-warning', text: 'Độ ẩm thấp' };
+      default: return { icon: 'fa-exclamation-triangle', color: 'text-secondary', bg: 'bg-secondary', text: type };
     }
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'COMPLETED': return 'bg-success';
-      case 'IN_PROGRESS': return 'bg-primary';
-      case 'RECEIVED': return 'bg-secondary';
-      case 'NOT_RECEIVED': return 'bg-warning';
-      case 'FAILED': return 'bg-danger';
-      default: return 'bg-secondary';
-    }
+  const getStatusBadge = (status: string) => {
+    const map: Record<string, { bg: string; text: string }> = {
+      COMPLETED: { bg: 'bg-success', text: 'Hoàn thành' },
+      IN_PROGRESS: { bg: 'bg-primary', text: 'Đang thực hiện' },
+      RECEIVED: { bg: 'bg-secondary', text: 'Đã nhận' },
+      NOT_RECEIVED: { bg: 'bg-warning', text: 'Chưa nhận' },
+      FAILED: { bg: 'bg-danger', text: 'Thất bại' },
+    };
+    return map[status] || { bg: 'bg-secondary', text: status };
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'COMPLETED': return 'Hoàn thành';
-      case 'IN_PROGRESS': return 'Đang thực hiện';
-      case 'RECEIVED': return 'Đã nhận';
-      case 'NOT_RECEIVED': return 'Chưa nhận';
-      case 'FAILED': return 'Đã thất bại';
-      default: return status;
-    }
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')} ${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
   };
 
-  const formatDateTime = (datetime: string) => {
-    const date = new Date(datetime);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
-  };
-
-  const getTotalAlerts = () => {
-    return alertLogs.reduce((total, log) => total + log.alerts.length, 0);
-  };
-
-  const getAlertsByType = () => {
-    const counts = { TEMP_HIGH: 0, TEMP_LOW: 0, HUM_HIGH: 0, HUM_LOW: 0 };
+  const stats = useMemo(() => {
+    if (!Array.isArray(alertLogs)) return { total: 0, TEMP_HIGH: 0, TEMP_LOW: 0, HUM_HIGH: 0, HUM_LOW: 0 };
+    let total = 0;
+    const types = { TEMP_HIGH: 0, TEMP_LOW: 0, HUM_HIGH: 0, HUM_LOW: 0 };
     alertLogs.forEach(log => {
-      log.alerts.forEach(alert => {
-        if (counts.hasOwnProperty(alert.alert_type)) {
-          counts[alert.alert_type as keyof typeof counts]++;
-        }
+      log.rfid_tags.forEach(group => {
+        total += group.alerts.length;
+        group.alerts.forEach(alert => {
+          if (types.hasOwnProperty(alert.alert_type)) {
+            types[alert.alert_type as keyof typeof types]++;
+          }
+        });
       });
     });
-    return counts;
-  };
+    return { total, ...types };
+  }, [alertLogs]);
 
-  const alertStats = getAlertsByType();
-
+  // === RENDER (giữ nguyên) ===
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
@@ -159,215 +230,175 @@ export default function AlertLogPage() {
         </h2>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="row g-3 mt-2 mb-4 d-flex justify-content-center">
-        <div className="col-lg-2 col-md-6">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
+      <div className="row g-3 mt-3 mb-4">
+        {[
+          { label: 'Tổng cảnh báo', value: stats.total, icon: 'fa-bell', color: 'secondary' },
+          { label: 'Nhiệt độ cao', value: stats.TEMP_HIGH, icon: 'fa-temperature-arrow-up', color: 'danger' },
+          { label: 'Nhiệt độ thấp', value: stats.TEMP_LOW, icon: 'fa-temperature-arrow-down', color: 'info' },
+          { label: 'Độ ẩm cao', value: stats.HUM_HIGH, icon: 'fa-droplet', color: 'primary' },
+          { label: 'Độ ẩm thấp', value: stats.HUM_LOW, icon: 'fa-droplet-slash', color: 'warning' },
+        ].map((stat, i) => (
+          <div key={i} className="col-lg-2 col-md-6">
+            <div className="card border-0 shadow-sm h-100">
+              <div className="card-body d-flex justify-content-between align-items-center">
                 <div>
-                  <small className="text-muted d-block">Tổng cảnh báo</small>
-                  <h4 className="mb-0 mt-1">{getTotalAlerts()}</h4>
+                  <small className="text-muted d-block">{stat.label}</small>
+                  <h4 className={`mb-0 mt-1 text-${stat.color}`}>{stat.value}</h4>
                 </div>
-                <div className="bg-secondary bg-opacity-10 p-3 rounded">
-                  <i className="fas fa-bell fa-2x text-secondary"></i>
+                <div className={`bg-${stat.color} bg-opacity-10 p-3 rounded`}>
+                  <i className={`fas ${stat.icon} fa-2x text-${stat.color}`}></i>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="col-lg-2 col-md-6">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted d-block">Nhiệt độ cao</small>
-                  <h4 className="mb-0 mt-1 text-danger">{alertStats.TEMP_HIGH}</h4>
-                </div>
-                <div className="bg-danger bg-opacity-10 p-3 rounded">
-                  <i className="fas fa-temperature-arrow-up fa-2x text-danger"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-lg-2 col-md-6">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted d-block">Nhiệt độ thấp</small>
-                  <h4 className="mb-0 mt-1 text-info">{alertStats.TEMP_LOW}</h4>
-                </div>
-                <div className="bg-info bg-opacity-10 p-3 rounded">
-                  <i className="fas fa-temperature-arrow-down fa-2x text-info"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-lg-2 col-md-6">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted d-block">Độ ẩm cao</small>
-                  <h4 className="mb-0 mt-1 text-danger">{alertStats.HUM_HIGH}</h4>
-                </div>
-                <div className="bg-danger bg-opacity-10 p-3 rounded">
-                  <i className="fas fa-droplet fa-2x text-danger"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="col-lg-2 col-md-6">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <small className="text-muted d-block">Độ ẩm thấp</small>
-                  <h4 className="mb-0 mt-1 text-primary">{alertStats.HUM_LOW}</h4>
-                </div>
-                <div className="bg-primary bg-opacity-10 p-3 rounded">
-                  <i className="fas fa-droplet fa-2x text-primary"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Alert Logs */}
       <div className="mt-4">
         {alertLogs.length === 0 ? (
-          <div className="data-card">
-            <div className="data-card-body text-center py-5">
-              <p className="text-muted">Chưa có cảnh báo nào</p>
-            </div>
+          <div className="data-card text-center py-5">
+            <p className="text-muted">Chưa có cảnh báo nào</p>
           </div>
         ) : (
           <div className="row g-4">
-            {/* Thay thế toàn bộ phần render danh sách */}
-            {alertLogs.map((log, index) => {
+            {alertLogs.map((log) => {
               const plan = log.work_plan;
-              const rfid = log.rfid_tag;
-              const isExpanded = expandedPlanId === `${plan.work_plan_id}-${rfid.rfid_tag_id}`;
+              const isPlanOpen = expandedPlans.has(plan.work_plan_id);
+              const totalAlerts = log.rfid_tags.reduce((s, g) => s + g.alerts.length, 0);
+              const totalLocations = log.rfid_tags.length;
 
               return (
-                <div key={`${plan.work_plan_id}-${rfid.rfid_tag_id}`} className="col-12">
-                  <div className="data-card position-relative">
-                    <div className="position-absolute top-0 start-0 m-2">
-                      <span className="badge bg-dark">
-                        STT: {index + 1 + (currentPage - 1) * limit}
-                      </span>
-                    </div>
-
-                    {/* HEADER: KẾ HOẠCH + RFID */}
+                <div key={plan.work_plan_id} className="col-12">
+                  <div className="data-card">
                     <div
-                      className="d-block data-card-header"
+                      className="data-card-header d-flex justify-content-between align-items-center"
                       style={{ cursor: 'pointer' }}
-                      onClick={() => togglePlan(`${plan.work_plan_id}-${rfid.rfid_tag_id}`)}
+                      onClick={() => togglePlan(plan.work_plan_id)}
                     >
-                      <div className="d-flex justify-content-between align-items-center ms-4">
-                        <div className="d-flex align-items-center gap-3">
-                          <i className={`fas fa-chevron-${isExpanded ? 'down' : 'right'}`}></i>
-                          <div className="me-4">
-                            <div className="d-flex align-items-center gap-2 mb-1">
-                              <i className="fas fa-clipboard-list text-success"></i>
-                              <h5 className="mb-0">{plan.description}</h5>
-                              <span className={`badge ${getStatusBadgeClass(plan.status)} ms-2`}>
-                                {getStatusText(plan.status)}
-                              </span>
-                            </div>
-                            <div className="d-flex align-items-center gap-2">
-                              <i className="fas fa-id-card text-primary"></i>
-                              <>{rfid.uid}</>
-                              <span className="text-muted">- {rfid.location_name}</span>
-                            </div>
-                            <div className="d-flex gap-3 align-items-center mt-1">
-                              <small className="text-muted">
-                                <i className="fas fa-exclamation-triangle text-danger me-2"></i>
-                                {log.alerts.length} cảnh báo
-                              </small>
-                            </div>
+                      <div className="d-flex align-items-center gap-3">
+                        <i className={`fas fa-chevron-${isPlanOpen ? 'down' : 'right'} text-primary`}></i>
+                        <div>
+                          <div className="d-flex align-items-center gap-2 mb-1">
+                            <i className="fas fa-clipboard-list text-success"></i>
+                            <h5 className="mb-0">{plan.description}</h5>
+                            <span className={`badge ${getStatusBadge(plan.status).bg} ms-2`}>
+                              {getStatusBadge(plan.status).text}
+                            </span>
                           </div>
+
+                          <small className="text-muted">
+                            <i className="fas fa-map-marker-alt me-1 text-info"></i>
+                            {totalLocations} vị trí &nbsp;•&nbsp;
+                            <i className="fas fa-exclamation-triangle me-1 text-danger"></i>
+                            {totalAlerts} cảnh báo
+                          </small>
+
+                          <p className="mb-0 text-muted">
+                            <i className="fas fa-clock me-1 text-secondary"></i>
+                            Thời gian tạo:{' '}
+                            {plan.created_at
+                              ? new Date(plan.created_at).toLocaleString('vi-VN')
+                              : 'Không xác định'}
+                          </p>
                         </div>
-                        <div className="text-end ms-auto">
-                          <small className="text-muted d-block">Ngưỡng nhiệt độ: ±{plan.temp_threshold}°C</small>
-                          <small className="text-muted d-block">Ngưỡng độ ẩm: ±{plan.hum_threshold}%</small>
-                          <small className="text-muted d-block">Ngưỡng cho phép: Dưới {plan.violation_count} lần</small>
-                        </div>
+                      </div>
+                      <div className="text-end">
+                        <small className="text-muted d-block">Ngưỡng: ±{plan.temp_threshold}°C, ±{plan.hum_threshold}%</small>
+                        <small className="text-muted d-block">Tối đa: {plan.violation_count} lần vi phạm</small>
                       </div>
                     </div>
 
-                    {/* NỘI DUNG CHI TIẾT */}
-                    {isExpanded && (
-                      <div className="p-4 bg-light">
-                        <div className="table-responsive">
-                          <table className="table table-sm table-hover mb-0">
-                            <thead className="table-light">
-                              <tr>
-                                <th>#</th>
-                                <th>Loại</th>
-                                <th>Lần đo</th>
-                                <th className="text-center">Đo được</th>
-                                <th className="text-center">Chuẩn</th>
-                                <th className="text-center">Ngưỡng</th>
-                                <th className="text-center">Lệch</th>
-                                <th className="text-center">Thời gian</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {log.alerts.map((alert) => {
-                                const typeInfo = getAlertTypeInfo(alert.alert_type);
-                                const deviation = Math.abs(alert.measured_value - alert.reference_value);
-                                const isTemp = alert.alert_type.includes('TEMP');
+                    {isPlanOpen && (
+                      <div className="p-3 bg-light-subtle">
+                        {log.rfid_tags.map((group) => {
+                          const rfid = group.rfid_tag;
+                          const alerts = group.alerts;
+                          const isRfidOpen = (expandedRfids[plan.work_plan_id] || []).includes(rfid.rfid_tag_id);
 
-                                return (
-                                  <tr key={alert.alert_id}>
-                                    <td><small className="badge bg-secondary">{alert.alert_id}</small></td>
-                                    <td>
-                                      <div className="d-flex align-items-center gap-1">
-                                        <i className={`fas ${typeInfo.icon} ${typeInfo.color} fa-xs`}></i>
-                                        <small className={typeInfo.color}>{typeInfo.text}</small>
-                                      </div>
-                                    </td>
-                                    <td><span className="badge bg-info">Lần {alert.measurement_number}</span></td>
-                                    <td className="text-center">
-                                      <strong className={typeInfo.color}>
-                                        {alert.measured_value}{isTemp ? '°C' : '%'}
-                                      </strong>
-                                    </td>
-                                    <td className="text-center text-muted">
-                                      {alert.reference_value}{isTemp ? '°C' : '%'}
-                                    </td>
-                                    <td className="text-center text-muted">
-                                      ±{alert.threshold}{isTemp ? '°C' : '%'}
-                                    </td>
-                                    <td className="text-center">
-                                      <span className={`badge ${typeInfo.bgColor} bg-opacity-75`}>
-                                        {deviation.toFixed(1)}
-                                      </span>
-                                    </td>
-                                    <td className="text-center">
-                                      <small className="text-muted">
-                                        {formatDateTime(alert.created_at)}
-                                      </small>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                          return (
+                            <div key={rfid.rfid_tag_id} className="border-start border-3 border-primary ps-3 mb-3">
+                              <div
+                                className="d-flex align-items-center gap-2 mb-2"
+                                style={{ cursor: 'pointer' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleRfid(plan.work_plan_id, rfid.rfid_tag_id);
+                                }}
+                              >
+                                <i className={`fas fa-chevron-${isRfidOpen ? 'down' : 'right'} text-primary`}></i>
+                                <i className="fas fa-id-card text-primary"></i>
+                                <strong>{rfid.uid}</strong>
+                                <span className="text-muted">- {rfid.location_name}</span>
+                                <span className="badge bg-danger ms-2">{alerts.length} cảnh báo</span>
+                              </div>
 
-                        <div className="mt-3 p-3 bg-light rounded small">
-                          <strong>Tổng: {log.alerts.length} cảnh báo</strong> tại vị trí này
-                        </div>
+                              {isRfidOpen && alerts.length > 0 && (
+                                <div className="table-responsive ms-4 mt-2">
+                                  <table className="table table-sm table-hover align-middle">
+                                    <thead className="table-light">
+                                      <tr>
+                                        <th>#</th>
+                                        <th>Loại</th>
+                                        <th>Lần đo</th>
+                                        <th className="text-center">Đo được</th>
+                                        <th className="text-center">Chuẩn</th>
+                                        <th className="text-center">Ngưỡng</th>
+                                        <th className="text-center">Lệch</th>
+                                        <th className="text-center">Thời gian</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {alerts.map((alert) => {
+                                        const info = getAlertTypeInfo(alert.alert_type);
+                                        const deviation = Math.abs(alert.measured_value - alert.reference_value);
+                                        const isTemp = alert.alert_type.includes('TEMP');
+
+                                        return (
+                                          <tr key={alert.alert_id}>
+                                            <td><span className="badge bg-secondary">{alert.alert_id}</span></td>
+                                            <td>
+                                              <div className="d-flex align-items-center gap-1">
+                                                <i className={`fas ${info.icon} ${info.color} fa-xs`}></i>
+                                                <small className={info.color}>{info.text}</small>
+                                              </div>
+                                            </td>
+                                            <td><span className="badge bg-info">Lần {alert.measurement_number}</span></td>
+                                            <td className="text-center">
+                                              <strong className={info.color}>
+                                                {alert.measured_value}{isTemp ? '°C' : '%'}
+                                              </strong>
+                                            </td>
+                                            <td className="text-center text-muted">
+                                              {alert.reference_value}{isTemp ? '°C' : '%'}
+                                            </td>
+                                            <td className="text-center text-muted">
+                                              ±{alert.threshold}{isTemp ? '°C' : '%'}
+                                            </td>
+                                            <td className="text-center">
+                                              <span className={`badge ${info.bg} bg-opacity-75`}>
+                                                {deviation.toFixed(1)}
+                                              </span>
+                                            </td>
+                                            <td className="text-center">
+                                              <small className="text-muted">
+                                                {formatDateTime(alert.created_at)}
+                                              </small>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                  <div className="text-end mt-2">
+                                    <small className="text-muted">
+                                      Tổng: <strong>{alerts.length}</strong> cảnh báo tại vị trí này
+                                    </small>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -378,8 +409,7 @@ export default function AlertLogPage() {
         )}
       </div>
 
-      {/* Phân trang */}
-      <div className="d-flex justify-content-center mt-4 mb-3">
+      <div className="d-flex justify-content-center mt-5 mb-3">
         <Stack spacing={2}>
           <Pagination
             count={totalPages}
@@ -387,6 +417,9 @@ export default function AlertLogPage() {
             onChange={handlePageChange}
             variant="outlined"
             shape="rounded"
+            size="large"
+            showFirstButton
+            showLastButton
           />
         </Stack>
       </div>

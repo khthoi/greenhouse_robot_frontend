@@ -14,8 +14,10 @@
     "@mui/material": "^7.3.4",
     "mui": "^0.0.1",
     "next": "16.0.0",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react": "^19.2.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dom": "^19.2.0",
     "react-toastify": "^11.0.5",
     "socket.io-client": "^4.8.1",
     "sweetalert2": "^11.26.3"

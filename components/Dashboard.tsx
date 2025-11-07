@@ -18,7 +18,8 @@ interface WorkPlanData {
   progress: string;
   temp_threshold: number;
   hum_threshold: number;
-  violation_count: number;
+  violation_count_limit: number; // Số lần cho phép vi phạm
+  created_at: string;
   items: Array<{
     rfid_tag_id: number;
     uid: string;
@@ -28,15 +29,17 @@ interface WorkPlanData {
     latest_temperature?: number;
     latest_humidity?: number;
     latest_created_at?: string;
+    violation_count: number; // Số lần cảnh báo của từng thẻ
   }>;
 }
 
 interface ObstacleData {
   id: number;
-  center_dist: number;
-  left_dist: number;
-  right_dist: number;
+  center_distance: number;
+  left_distance: number;
+  right_distance: number;
   suggestion: string;
+  action_taken: string;
   created_at: string;
 }
 
@@ -44,7 +47,6 @@ interface StatusData {
   id: number;
   status: string;
   mode: string;
-  command_excuted: string;
   message: string;
   created_at: string;
 }
@@ -56,7 +58,7 @@ export default function Dashboard() {
   const [robotStatus, setRobotStatus] = useState<StatusData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  // 🟢 Gọi API /commands/latest định kỳ
+  // 🟢 Fetch API /commands/latest
   useEffect(() => {
     const fetchLatestCommand = async () => {
       try {
@@ -74,11 +76,65 @@ export default function Dashboard() {
     };
 
     fetchLatestCommand();
-    const interval = setInterval(fetchLatestCommand, 3000); // gọi mỗi 3s
+    const interval = setInterval(fetchLatestCommand, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  // 🟢 Socket events (giữ nguyên)
+  // 🟢 Fetch API /work-plan/details/latest
+  useEffect(() => {
+    const fetchLatestWorkPlan = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/work-plans/details/latest`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setWorkPlan(data);
+      } catch (err) {
+        console.error('Không thể tải kế hoạch công việc:', err);
+      }
+    };
+
+    fetchLatestWorkPlan();
+    const interval = setInterval(fetchLatestWorkPlan, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🟢 Fetch API /obstacles-log/latest
+  useEffect(() => {
+    const fetchLatestObstacle = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/obstacle-logs/latest`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setObstacle(data);
+      } catch (err) {
+        console.error('Không thể tải thông tin vật cản:', err);
+      }
+    };
+
+    fetchLatestObstacle();
+    const interval = setInterval(fetchLatestObstacle, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🟢 Fetch API /robot-status/latest
+  useEffect(() => {
+    const fetchLatestRobotStatus = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL}/robot-status/latest`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setRobotStatus(data);
+      } catch (err) {
+        console.error('Không thể tải trạng thái robot:', err);
+      }
+    };
+
+    fetchLatestRobotStatus();
+    const interval = setInterval(fetchLatestRobotStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 🟢 Socket events (realtime updates)
   useEffect(() => {
     if (!socket) return;
 
@@ -101,18 +157,6 @@ export default function Dashboard() {
     };
   }, []);
 
-
-  const getCommandName = (command: string) => {
-    const names: Record<string, string> = {
-      'FORWARD': 'Tiến',
-      'BACKWARD': 'Lùi',
-      'TURN_LEFT': 'Rẽ trái',
-      'TURN_RIGHT': 'Rẽ phải',
-      'STOP': 'Dừng',
-    };
-    return names[command] || command;
-  };
-
   const getStatusBadge = (status: string) => {
     const badges: Record<string, string> = {
       'NONE': 'secondary',
@@ -126,26 +170,15 @@ export default function Dashboard() {
     return badges[status] || 'secondary';
   };
 
-  // Lấy dữ liệu nhiệt độ và độ ẩm mới nhất
-  const getLatestMeasurement = () => {
-    if (!workPlan?.items) return null;
-
-    const itemsWithData = workPlan.items.filter(
-      item => item.latest_temperature !== undefined && item.latest_humidity !== undefined
-    );
-
-    if (itemsWithData.length === 0) return null;
-
-    const latest = itemsWithData.reduce((prev, current) => {
-      const prevTime = prev.latest_created_at ? new Date(prev.latest_created_at).getTime() : 0;
-      const currTime = current.latest_created_at ? new Date(current.latest_created_at).getTime() : 0;
-      return currTime > prevTime ? current : prev;
-    });
-
-    return latest;
+  const getSuggestionText = (suggestion: string) => {
+    const texts: Record<string, string> = {
+      'TURN_LEFT_FOR_OBSTACLE_AVOID': 'Rẽ trái để tránh vật cản',
+      'TURN_RIGHT_FOR_OBSTACLE_AVOID': 'Rẽ phải để tránh vật cản',
+      'STOP': 'Dừng lại',
+      'CONTINUE': 'Tiếp tục',
+    };
+    return texts[suggestion] || suggestion;
   };
-
-  const latestMeasurement = getLatestMeasurement();
 
   return (
     <div className="dashboard-container">
@@ -194,27 +227,45 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Tiến trình công việc hiện tại */}
+        {/* Tiến trình công việc gần đây nhất */}
         <div className="col-lg-6 col-12">
           <div className="card shadow-sm h-100">
             <div className="card-header bg-info text-white">
               <i className="fa-solid fa-chart-simple me-2"></i>
-              Tiến trình công việc hiện tại
+              Tiến trình công việc gần đây nhất
             </div>
             <div className="card-body" style={{ maxHeight: '500px', overflowY: 'auto' }}>
               {workPlan ? (
                 <div>
                   <h6 className="mb-3">{workPlan.description}</h6>
+                  <p className="text-muted mb-1">
+                    <i className="fas fa-clock me-2"></i>
+                    <strong>Thời gian tạo kế hoạch:</strong>{' '}
+                    {new Date(workPlan.created_at).toLocaleString('vi-VN')}
+                  </p>
                   <div className="mb-3">
                     <span className={`badge bg-${getStatusBadge(workPlan.status)} me-2`}>
                       {workPlan.status}
                     </span>
-                    <span className="badge bg-danger">
-                      Vi phạm: {workPlan.violation_count}
+                    <span className="badge bg-warning text-dark">
+                      Cho phép vi phạm: {workPlan.violation_count_limit} lần
                     </span>
                   </div>
 
-                  {/* Tổng quan nhanh */}
+                  {/* Ngưỡng nhiệt độ và độ ẩm */}
+                  <div className="mb-3 p-2 bg-light rounded">
+                    <div className="row">
+                      <div className="col-6">
+                        <small className="text-muted d-block">Ngưỡng chênh nhiệt độ</small>
+                        <strong className="text-danger">±{workPlan.temp_threshold}°C</strong>
+                      </div>
+                      <div className="col-6">
+                        <small className="text-muted d-block">Ngưỡng chênh độ ẩm</small>
+                        <strong className="text-primary">±{workPlan.hum_threshold}%</strong>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Tiến độ kế hoạch */}
                   <div className="mb-3">
                     <div className="d-flex align-items-center justify-content-between mb-2">
@@ -245,7 +296,6 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-
                   {/* Danh sách RFID Tags */}
                   <div className="mt-3">
                     <h6 className="text-primary mb-2">
@@ -261,6 +311,7 @@ export default function Dashboard() {
                             <th className="text-center">Đo</th>
                             <th className="text-center">Nhiệt độ</th>
                             <th className="text-center">Độ ẩm</th>
+                            <th className="text-center">Cảnh báo</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -295,7 +346,7 @@ export default function Dashboard() {
                                 </td>
                                 <td className="text-center">
                                   {item.latest_temperature !== undefined ? (
-                                    <span className={item.latest_temperature > workPlan.temp_threshold ? 'text-danger' : 'text-success'}>
+                                    <span className={item.latest_temperature > workPlan.temp_threshold ? 'text-danger fw-bold' : 'text-success'}>
                                       {item.latest_temperature}°C
                                     </span>
                                   ) : (
@@ -304,12 +355,17 @@ export default function Dashboard() {
                                 </td>
                                 <td className="text-center">
                                   {item.latest_humidity !== undefined ? (
-                                    <span className={item.latest_humidity > workPlan.hum_threshold ? 'text-danger' : 'text-success'}>
+                                    <span className={item.latest_humidity > workPlan.hum_threshold ? 'text-danger fw-bold' : 'text-success'}>
                                       {item.latest_humidity}%
                                     </span>
                                   ) : (
                                     <span className="text-muted">--</span>
                                   )}
+                                </td>
+                                <td className="text-center">
+                                  <span className={`badge ${item.violation_count > 0 ? 'bg-danger' : 'bg-success'}`}>
+                                    {item.violation_count}
+                                  </span>
                                 </td>
                               </tr>
                             );
@@ -321,7 +377,7 @@ export default function Dashboard() {
 
                   <div className="mt-3 text-end">
                     <small className="text-muted">
-                      Cập nhật: {new Date().toLocaleTimeString('vi-VN')}
+                      Cập nhật lần cuối từ server: {new Date().toLocaleTimeString('vi-VN')}
                     </small>
                   </div>
                 </div>
@@ -335,12 +391,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Thông báo vật cản */}
+        {/* Thông báo vật cản gần đây nhất */}
         <div className="col-lg-6 col-12">
           <div className="card shadow-sm h-100">
             <div className="card-header bg-warning text-dark">
               <i className="fas fa-triangle-exclamation me-2"></i>
-              Thông báo vật cản
+              Thông báo vật cản gần đây nhất
             </div>
             <div className="card-body">
               {obstacle ? (
@@ -351,23 +407,32 @@ export default function Dashboard() {
 
                   <div className="row text-center mb-3">
                     <div className="col-4">
-                      <div className="obstacle-value">{obstacle.left_dist}cm</div>
+                      <div className="obstacle-value">{obstacle.left_distance}cm</div>
                       <small className="text-muted">⬅️ Trái</small>
                     </div>
                     <div className="col-4">
-                      <div className="obstacle-value text-danger">{obstacle.center_dist}cm</div>
+                      <div className="obstacle-value text-danger">{obstacle.center_distance}cm</div>
                       <small className="text-muted">⬆️ Giữa</small>
                     </div>
                     <div className="col-4">
-                      <div className="obstacle-value">{obstacle.right_dist}cm</div>
+                      <div className="obstacle-value">{obstacle.right_distance}cm</div>
                       <small className="text-muted">➡️ Phải</small>
                     </div>
                   </div>
 
                   <div className="mb-2">
                     <strong>Đề xuất:</strong>
-                    <span className="badge bg-warning text-dark ms-2">
-                      {obstacle.suggestion}
+                    <div className="mt-1">
+                      <span className="badge bg-warning text-dark fs-6">
+                        {getSuggestionText(obstacle.suggestion)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-2">
+                    <strong>Hành động:</strong>
+                    <span className={`badge ms-2 bg-primary fs-6`}>
+                      {obstacle.action_taken}
                     </span>
                   </div>
 
@@ -391,28 +456,41 @@ export default function Dashboard() {
           <div className="card shadow-sm h-100">
             <div className="card-header bg-success text-white">
               <i className="fas fa-robot me-2"></i>
-              Trạng thái robot hiện tại
+              Trạng thái robot gần đây nhất
             </div>
             <div className="card-body">
               {robotStatus ? (
                 <div>
-                  <div className="mb-3">
-                    <span className={`badge bg-${getStatusBadge(robotStatus.status)} me-2`}>
-                      {robotStatus.status}
-                    </span>
-                    <span className="badge bg-secondary">
-                      {robotStatus.mode}
-                    </span>
+                  <div className="d-flex align-items-center mb-3">
+                    <div className="me-5">
+                      <small className="text-muted d-block">Trạng thái</small>
+                      <span
+                        className={`badge fs-6 ${robotStatus.status === 'RUNNING'
+                            ? 'bg-warning text-dark'
+                            : robotStatus.status === 'IDLE'
+                              ? 'bg-success'
+                              : 'bg-secondary'
+                          }`}
+                      >
+                        {robotStatus.status}
+                      </span>
+                    </div>
+                    <div>
+                      <small className="text-muted d-block">Chế độ</small>
+                      <span
+                        className={`badge fs-6 ${robotStatus.mode === 'AUTO' ? 'bg-success' : 'bg-warning text-dark'
+                          }`}
+                      >
+                        {robotStatus.mode}
+                      </span>
+                    </div>
                   </div>
-
-                  <div className="mb-2">
-                    <strong>Lệnh đang thực thi:</strong>
-                    <span className="ms-2 text-primary">{robotStatus.command_excuted}</span>
-                  </div>
-
-                  <div className="mb-2">
-                    <strong>Thông báo:</strong>
-                    <p className="mb-0 text-muted">{robotStatus.message}</p>
+                  <div className="mb-3 p-3 bg-light rounded">
+                    <strong className="d-block mb-2">
+                      <i className="fas fa-info-circle me-2 text-info"></i>
+                      Thông báo:
+                    </strong>
+                    <p className="mb-0">{robotStatus.message}</p>
                   </div>
 
                   <p className="text-muted mb-0">
