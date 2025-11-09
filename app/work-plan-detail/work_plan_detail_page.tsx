@@ -66,9 +66,10 @@ export default function CollectedDataPage() {
     switch (status) {
       case 'COMPLETED': return 'bg-success';
       case 'IN_PROGRESS': return 'bg-primary';
-      case 'RECEIVED': return 'bg-secondary';
+      case 'RECEIVED': return 'bg-info';
       case 'NOT_RECEIVED': return 'bg-warning';
       case 'FAILED': return 'bg-danger';
+      case 'SUSPENDED': return 'bg-secondary';
       default: return 'bg-secondary';
     }
   };
@@ -80,6 +81,7 @@ export default function CollectedDataPage() {
       case 'RECEIVED': return 'Đã nhận';
       case 'NOT_RECEIVED': return 'Chưa nhận';
       case 'FAILED': return 'Đã thất bại';
+      case 'SUSPENDED': return 'Đã tạm dừng';
       default: return status;
     }
   };

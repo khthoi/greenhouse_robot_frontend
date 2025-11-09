@@ -88,9 +88,9 @@ export default function WorkPlanPage() {
         switch (status) {
             case 'COMPLETED': return 'bg-success';
             case 'IN_PROGRESS': return 'bg-primary';
-            case 'RECEIVED': return 'bg-secondary';
+            case 'RECEIVED': return 'bg-info';
             case 'NOT_RECEIVED': return 'bg-warning';
-            case 'FAILED': return 'bg-danger';
+            case 'SUSPENDED': return 'bg-secondary';
             default: return 'bg-secondary';
         }
     };
@@ -98,10 +98,11 @@ export default function WorkPlanPage() {
     const getStatusText = (status: string) => {
         switch (status) {
             case 'COMPLETED': return 'Hoàn thành';
-            case 'IN_PROGRESS': return 'Đang thực hiện';
+            case 'IN_PROGRESS': return 'Thực hiện';
             case 'RECEIVED': return 'Đã nhận';
             case 'NOT_RECEIVED': return 'Chưa nhận';
             case 'FAILED': return 'Đã thất bại';
+            case 'SUSPENDED': return 'Tạm dừng';
             default: return status;
         }
     };
@@ -118,6 +119,52 @@ export default function WorkPlanPage() {
 
     const toggleExpandPlan = (planId: number) => {
         setExpandedPlanId(prev => (prev === planId ? null : planId));
+    };
+
+    const publishWorkplanAgain = async (id: number) => {
+        const result = await Swal.fire({
+            icon: 'question',
+            title: 'Xác nhận',
+            text: 'Bạn có chắc chắn muốn gửi lại kế hoạch này không?',
+            showCancelButton: true,
+            confirmButtonText: 'Có',
+            cancelButtonText: 'Không',
+            confirmButtonColor: '#3498db',
+            cancelButtonColor: '#e74c3c',
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const res = await fetch(`${apiUrl}/mqtt/publish/work-plan/${id}`, {
+                method: 'POST',
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => null);
+                const errorMessage = errorData?.message || `Lỗi ${res.status}: ${res.statusText || 'Không xác định'}`;
+                console.error('❌ Lỗi từ API:', errorMessage, errorData);
+                throw new Error(errorMessage);
+            }
+
+            await Swal.fire({
+                icon: 'success',
+                title: 'Thành công',
+                text: `Kế hoạch ${id} đã được gửi lại thành công`,
+                confirmButtonColor: '#3498db',
+            });
+
+            console.log(`✅ WorkPlan ${id} published again successfully`);
+            triggerRefresh();
+        } catch (err) {
+            console.error('⚠️ Lỗi khi gửi lại WorkPlan:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Thất bại',
+                text: err instanceof Error ? err.message : 'Gửi lại kế hoạch thất bại',
+                confirmButtonColor: '#e74c3c',
+            });
+        }
     };
 
     const handleCreatePlan = async (templatePlan?: WorkPlan) => {
@@ -346,7 +393,17 @@ export default function WorkPlanPage() {
                     body: JSON.stringify(formValues)
                 });
 
-                if (!res.ok) throw new Error();
+                // Nếu API trả lỗi
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => null);
+                    const errorMessage =
+                        errorData?.message ||
+                        `Lỗi ${res.status}: ${res.statusText || 'Không xác định'}`;
+
+                    console.error('❌ Lỗi từ API:', errorMessage, errorData);
+
+                    throw new Error(errorMessage);
+                }
 
                 await Swal.fire({
                     icon: 'success',
@@ -358,10 +415,11 @@ export default function WorkPlanPage() {
                 triggerRefresh();
                 setCurrentPage(1);
             } catch (err) {
+                const errorMessage = err instanceof Error ? err.message : 'Tạo kế hoạch thất bại';
                 Swal.fire({
                     icon: 'error',
                     title: 'Lỗi!',
-                    text: 'Tạo kế hoạch thất bại',
+                    text: errorMessage,
                     confirmButtonColor: '#e74c3c'
                 });
             }
@@ -472,12 +530,21 @@ export default function WorkPlanPage() {
                                                 <td>{parseFloat(plan.progress).toFixed(2)}%</td>
                                                 <td className="text-center">{plan.temp_threshold.toFixed(1)}°C</td>
                                                 <td className="text-center">{plan.hum_threshold.toFixed(1)}%</td>
-                                                <td className="text-center">{plan.violation_count}</td>
+                                                <td className="text-center">&lt;{plan.violation_count}</td>
                                                 <td className='text-center'>{formatDateTime(plan.created_at)}</td>
                                                 <td className="text-center">
                                                     <div className="btn-group" role="group">
                                                         <button
-                                                            className="btn btn-sm btn-outline-primary"
+                                                            className="btn btn-sm btn-outline-secondary"
+                                                            onClick={() => publishWorkplanAgain(plan.id)}
+                                                            title="Gửi lại kế hoạch"
+                                                            disabled={!['NOT_RECEIVED', 'RECEIVED', 'IN_PROGRESS', 'SUSPENDED'].includes(plan.status)}
+                                                        >
+                                                            <i className="fa-solid fa-paper-plane"></i>
+                                                        </button>
+
+                                                        <button
+                                                            className="btn btn-sm btn-outline-primary ms-1"
                                                             onClick={() => handleCreatePlan(plan)}
                                                             title="Áp dụng lại"
                                                         >
@@ -485,12 +552,10 @@ export default function WorkPlanPage() {
                                                         </button>
 
                                                         <button
-                                                            className={`btn btn-sm btn-outline-danger ms-1 ${['COMPLETED', 'NOT_RECEIVED', 'FAILED'].includes(plan.status)
-                                                                ? ''
-                                                                : 'invisible'
-                                                                }`}
+                                                            className="btn btn-sm btn-outline-danger ms-1"
                                                             onClick={() => handleDeletePlan(plan.id, plan.description)}
                                                             title="Xóa kế hoạch"
+                                                            disabled={!['COMPLETED', 'NOT_RECEIVED', 'FAILED'].includes(plan.status)}
                                                         >
                                                             <i className="fas fa-trash"></i>
                                                         </button>

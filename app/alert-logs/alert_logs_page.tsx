@@ -191,9 +191,10 @@ export default function AlertLogPage() {
     const map: Record<string, { bg: string; text: string }> = {
       COMPLETED: { bg: 'bg-success', text: 'Hoàn thành' },
       IN_PROGRESS: { bg: 'bg-primary', text: 'Đang thực hiện' },
-      RECEIVED: { bg: 'bg-secondary', text: 'Đã nhận' },
+      RECEIVED: { bg: 'bg-info', text: 'Đã nhận' },
       NOT_RECEIVED: { bg: 'bg-warning', text: 'Chưa nhận' },
       FAILED: { bg: 'bg-danger', text: 'Thất bại' },
+      SUSPENDED: { bg: 'bg-secondary', text: 'Đã tạm dừng' },
     };
     return map[status] || { bg: 'bg-secondary', text: status };
   };
