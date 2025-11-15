@@ -1,17 +1,17 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
-
-First, run the development server:
-
+## Setup dự án
 ```bash
+Bước 1: Cài đặt các thư viện:
+
+npm install
+
+Bước 2: thêm file .env với nội dung như sau:
+
+NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3000
+
+Bước 3: Chạy lệnh:
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
