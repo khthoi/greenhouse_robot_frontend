@@ -10,7 +10,7 @@ Bước 2: thêm file .env với nội dung như sau:
 
 NEXT_PUBLIC_BACKEND_API_URL=http://localhost:3000
 
-Bước 3: Chạy lệnh:
+Bước 3: Chạy dự án backend trước rồi chạy lệnh này ở front-end:
 npm run dev
 ```
 
